@@ -8,4 +8,4 @@ main :: IO ()
 main = do
     g <- newStdGen
     args <- getArgs
-    print $ show $ millerRabin g (read $ head args) (read $ args !! 1)
+    print $ show $ genPrime g (read $ head args)

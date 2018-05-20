@@ -5,8 +5,13 @@ module Primes
 
 import System.Random
 
-genPrime :: (RandomGen a, Integral b) => a -> b -> b
-genPrime g size = 0
+genPrime :: (RandomGen a, Integral b) => a -> b -> Integer
+genPrime g size
+  | millerRabin g n 10 = n
+  | otherwise          = genPrime g' size
+  where rand = randomR(2^(size-1), 2^size - 1) g
+        n = fst rand
+        g' = snd rand
 
 -- returns true if n is probably prime, false if definitely composite
 --
