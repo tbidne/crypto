@@ -78,7 +78,7 @@ powModN a d n = (a^(d `mod` 2) * powModN (a*a `mod` n) (d `div` 2) n) `mod` n
 -- finds the multiplicative inverse of a mod phi(p*q)
 findInverse :: (Integral a) => a -> a -> a -> a
 findInverse a p q
-  | s > 0     = x
+  | x > 0     = x
   | otherwise = totient + x
   where (g, x, y) = bezout a totient
         totient = (p-1) * (q-1)
