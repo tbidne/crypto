@@ -24,10 +24,12 @@ dependencies:
 
 library:
   exposed-modules:
+    - AES
     - RSA
     - NumberTheory
   source-dirs: src
   dependencies:
+    - bytestring
     - random
 
 executables:
@@ -41,6 +43,7 @@ executables:
       - -rtsopts
       - -with-rtsopts=-N
     dependencies:
+      - bytestring
       - random
 
 tests:
