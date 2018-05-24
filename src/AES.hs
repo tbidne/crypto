@@ -1,5 +1,8 @@
 module AES
-( keygen
+( keygenIO
+, encryptIO
+, keygen
+, encrypt
 )
 where
 
@@ -9,18 +12,49 @@ import qualified Data.Bits as B
 import qualified Data.List as L
 import qualified Data.Word as W
 
--- generates number in [2^(n-1)], 2^n - 1]
--- todo: turn into byte string
-keygen :: (R.RandomGen a) => a -> Integer -> Maybe Integer
+------------------
+-- IO Functions --
+------------------
+
+keygenIO :: Int -> String -> IO ()
+keygenIO size filename = do
+  g <- R.newStdGen
+  let key = keygen g size
+  case key of
+    Nothing -> putStrLn "wrong file size"
+    Just k -> BS.writeFile filename k
+
+encryptIO :: String -> String -> String -> IO ()
+encryptIO keyFile fileIn fileOut = do
+  k <- BS.readFile keyFile
+  m <- BS.readFile fileIn
+  let encrypted = encrypt k m
+  BS.writeFile fileOut encrypted
+
+-------------------
+-- API Functions --
+-------------------
+
+-- generates number in [2^(n-1)], 2^n - 1], turns into ByteString
+keygen :: (R.RandomGen a) => a -> Int -> Maybe BS.ByteString
 keygen g size = case size of
   s 
-    | s `elem` [128, 196, 256] -> Just key
+    | s `elem` [128, 192, 256] -> Just key
     | otherwise -> Nothing
-    where key = fst $ R.randomR(2^(size-1), 2^size - 1) g
+    where num = fst $ R.randomR(2^(size-1), 2^size - 1) g :: Integer
+          bytes = intToWord8List num []
+          key = BS.pack bytes
 
--- encryptIO :: String -> String -> IO()
--- encryptIO keyfile file do
-  -- key <- initKey $ BS.readFile keyfile
+encrypt :: BS.ByteString -> BS.ByteString -> BS.ByteString
+encrypt k m = stateToByteStr encrypted
+  where key = keyInit k
+        state = stateInit m
+        rounds = 0
+        encrypted = encryptInit rounds key state
+
+--------------------
+-- Init Functions --
+--------------------
 
 -- Turns ByteString representing key into matrix e.g. 128 bit keys have form
 -- | b1  b2  b3  b4  |
@@ -28,8 +62,8 @@ keygen g size = case size of
 -- | b8  b9  b10 b11 |
 -- | b12 b13 b14 b15 |
 -- 192 bit keys have rows of length 6, 256 is 8
-initKey :: BS.ByteString -> [[W.Word8]]
-initKey bytes = key
+keyInit :: BS.ByteString -> [[W.Word8]]
+keyInit bytes = key
   where flatKey = BS.unpack bytes
         rowLen = length flatKey `div` 4
         key = flatListToMatrix rowLen flatKey []
@@ -40,18 +74,28 @@ initKey bytes = key
 -- | b3 b7 b11 b15 |
 -- | b4 b8 b12 b16 |
 -- Notice this matrix is the _transpose_ of what you'd normally expect
-initState :: BS.ByteString -> [[W.Word8]]
-initState byteStr = state
+stateInit :: BS.ByteString -> [[W.Word8]]
+stateInit byteStr = state
   where byteList = BS.unpack byteStr
         matrix = flatListToMatrix 4 byteList []
         state = L.transpose matrix
 
+--------------------------------
+-- Rijndael Encrypt Functions --
+--------------------------------
+
+encryptInit :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+encryptInit rounds key state = encryptRound rounds key state
+
 -- todo: figure out pattern matching failure
-encrypt :: Int -> [[W.Word8]] -> [[W.Word8]] -> BS.ByteString
-encrypt 0 _ = stateToByteStr
-enrcrypt rounds key state =
+encryptRound :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+encryptRound 0 key state = encryptFinalize key state
+encryptRound rounds key state =
   let modify = mixColumns . shiftRows . subBytes
-  in enrcrypt (rounds-1) key $ addRoundKey key $ modify state
+  in encryptRound (rounds-1) key $ addRoundKey key $ modify state
+
+encryptFinalize :: [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+encryptFinalize key state = state
 
 subBytes :: [[W.Word8]] -> [[W.Word8]]
 subBytes state = state
@@ -65,6 +109,14 @@ mixColumns state = state
 addRoundKey :: [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
 addRoundKey key state = state
 
+--------------------------------
+-- Rijndael Decrypt Functions --
+--------------------------------
+
+----------------------
+-- Helper Functions --
+----------------------
+
 stateToByteStr :: [[W.Word8]] -> BS.ByteString
 stateToByteStr matrix = byteStr
   where flatList = L.concat $ L.transpose matrix
@@ -76,3 +128,9 @@ flatListToMatrix rowLen l matrix = flatListToMatrix rowLen l' matrix'
   where row = take rowLen l
         l' = drop rowLen l
         matrix' = matrix ++ [row]
+
+intToWord8List :: Integer -> [W.Word8] -> [W.Word8]
+intToWord8List 0 acc = acc
+intToWord8List i acc = intToWord8List i' (byte:acc)
+  where i' = B.shiftR i 8
+        byte = fromIntegral i :: W.Word8
