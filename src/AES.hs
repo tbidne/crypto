@@ -31,6 +31,13 @@ encryptIO keyFile fileIn fileOut = do
   let encrypted = encrypt k m
   BS.writeFile fileOut encrypted
 
+decryptIO :: String -> String -> String -> IO ()
+decryptIO keyFile fileIn fileOut = do
+  k <- BS.readFile keyFile
+  c <- BS.readFile fileIn
+  let decrypted = decrypt k c
+  BS.writeFile fileOut decrypted
+
 -------------------
 -- API Functions --
 -------------------
@@ -51,6 +58,13 @@ encrypt k m = stateToByteStr encrypted
         state = stateInit m
         rounds = 0
         encrypted = encryptInit rounds key state
+
+decrypt :: BS.ByteString -> BS.ByteString -> BS.ByteString
+decrypt k m = stateToByteStr decrypted
+  where key = keyInit k
+        state = stateInit m
+        rounds = 0
+        decrypted = decryptInit rounds key state
 
 --------------------
 -- Init Functions --
@@ -112,6 +126,30 @@ addRoundKey key state = state
 --------------------------------
 -- Rijndael Decrypt Functions --
 --------------------------------
+
+decryptInit :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+decryptInit rounds key state = decryptRound rounds key state
+
+decryptRound :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+decryptRound 0 key state = decryptFinalize key state
+decryptRound rounds key state =
+  let modify = invMixColumns . invShiftRows . invSubBytes
+  in decryptRound (rounds-1) key $ invAddRoundKey key $ modify state
+
+decryptFinalize :: [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+decryptFinalize key state = state
+
+invSubBytes :: [[W.Word8]] -> [[W.Word8]]
+invSubBytes state = state
+
+invShiftRows :: [[W.Word8]] -> [[W.Word8]]
+invShiftRows state = state
+
+invMixColumns :: [[W.Word8]] -> [[W.Word8]]
+invMixColumns state = state
+
+invAddRoundKey :: [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+invAddRoundKey key state = state
 
 ----------------------
 -- Helper Functions --
