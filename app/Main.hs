@@ -1,22 +1,70 @@
 module Main where
 
-import qualified Data.Maybe as Maybe
 import qualified System.Environment as Env
-import qualified System.Random as Random
-import qualified NumberTheory as NT
 import qualified RSA
+import qualified AES
+
+-------------------
+-- Parse Command --
+-------------------
 
 main :: IO ()
 main = do
-  g <- Random.newStdGen
   args <- Env.getArgs
-  let size = read $ head args :: Integer
-  let message = read $ args !! 1 :: Integer
-  let key = Maybe.fromJust $ RSA.keygen g size
-  let n = RSA.modulus key
-  let e = RSA.publicExponent key
-  let d = RSA.privateExponent key
-  let c = RSA.encrypt message e n
-  print $ "cipher text " ++ show c
-  let decrypted = RSA.decrypt c d n
-  print $ "decrypted " ++ show decrypted
+  let command = head args
+  case command of
+    "keygen"  -> keygen $ drop 1 args
+    "encrypt" -> encrypt $ drop 1 args
+    "decrypt" -> decrypt $ drop 1 args
+    _         -> print "Valid commands are: keygen, encrypt, decrypt"
+
+-------------------
+-- Parse options --
+-------------------
+
+keygen :: [String] -> IO ()
+keygen (x:xs) = do
+  let algorithm = x
+  case algorithm of
+    "aes" -> keygenAES xs
+    _     -> print "Valid keygen algorithms are: aes"
+
+encrypt :: [String] -> IO ()
+encrypt (x:xs) = do
+  let algorithm = x
+  case algorithm of
+    "aes" -> encryptAES xs
+    _     -> print "Valid encrypt algorithms are: aes"
+
+decrypt :: [String] -> IO ()
+decrypt (x:xs) = do
+  let algorithm = x
+  case algorithm of
+    "aes" -> decryptAES xs
+    _     -> print "Valid decrypt algorithms are: aes"
+
+---------
+-- AES --
+---------
+
+keygenAES :: [String] -> IO ()
+keygenAES args = do
+  let size = read $ head args
+  let fileOut = args !! 1
+  AES.keygenIO size fileOut
+
+encryptAES :: [String] -> IO ()
+encryptAES args = do
+  let (key, fileIn, fileOut) = setupAES args
+  AES.encryptIO key fileIn fileOut
+
+decryptAES :: [String] -> IO ()
+decryptAES args = do
+  let (key, fileIn, fileOut) = setupAES args
+  AES.decryptIO key fileIn fileOut
+
+setupAES :: [String] -> (String, String, String)
+setupAES (x:xs) = (key, fileIn, fileOut)
+  where key = x
+        fileIn = head xs
+        fileOut = xs !! 1
