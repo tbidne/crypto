@@ -12,8 +12,7 @@ import qualified Data.Bits as B
 import qualified Data.List as L
 import qualified Data.Word as W
 
--- TODO
--- encrypt
+-- Based on FIPS 197: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf
 
 ------------------
 -- IO Functions --
@@ -45,7 +44,7 @@ decryptIO keyFile fileIn fileOut = do
 -- API Functions --
 -------------------
 
--- generates number in [2^(n-1)], 2^n - 1], turns into ByteString
+-- Generates number in [2^(n-1)], 2^n - 1], turns into ByteString
 keygen :: (R.RandomGen a) => a -> Int -> Maybe BS.ByteString
 keygen g size = case size of
   s 
@@ -55,19 +54,22 @@ keygen g size = case size of
           bytes = intToWord8List num []
           key = BS.pack bytes
 
+-- Encrypts message m with key k
 encrypt :: BS.ByteString -> BS.ByteString -> BS.ByteString
 encrypt k m = stateToByteStr encrypted
   where key = keyInit k
+        roundKeys = keySchedule key
         state = stateInit m
-        rounds = 0
-        encrypted = encryptInit rounds key state
+        rounds = length key + 6
+        encrypted = encryptInit rounds roundKeys state
 
 decrypt :: BS.ByteString -> BS.ByteString -> BS.ByteString
 decrypt k m = stateToByteStr decrypted
   where key = keyInit k
+        roundKeys = keySchedule key
         state = stateInit m
-        rounds = 1
-        decrypted = decryptInit rounds key state
+        rounds = (length key ` div` 4) + 6
+        decrypted = decryptInit rounds roundKeys state
 
 --------------------
 -- Init Functions --
@@ -89,7 +91,7 @@ keyInit bytes = key
 -- | b2 b6 b10 b14 |
 -- | b3 b7 b11 b15 |
 -- | b4 b8 b12 b16 |
--- Notice this matrix is the _transpose_ of what you'd normally expect
+-- Notice this matrix is the _transpose_ of how the key was interpreted
 stateInit :: BS.ByteString -> [[W.Word8]]
 stateInit byteStr = state
   where byteList = BS.unpack byteStr
@@ -100,29 +102,55 @@ stateInit byteStr = state
 -- Rijndael Encrypt Functions --
 --------------------------------
 
+-- Round 0: starts the encryption, adds the first round key
 encryptInit :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
-encryptInit rounds key state = encryptRound rounds key state
+encryptInit maxRound roundKeys state = encryptRound 1 maxRound roundKeys state'
+  where state' = addRoundKey 0 roundKeys state
 
-encryptRound :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
-encryptRound 0 key state = encryptFinalize key state
-encryptRound rounds key state =
-  let modify = mixColumns . shiftRows . subBytes
-  in encryptRound (rounds-1) key $ addRoundKey key $ modify state
+-- Rounds 1 to Nr-1
+encryptRound :: Int -> Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+encryptRound round maxRound roundKeys state
+  | round == maxRound = encryptFinalize round roundKeys state
+  | otherwise         = encryptRound (round+1) maxRound roundKeys state'
+  where transform = mixColumns . shiftRows . subBytes
+        state' = addRoundKey round roundKeys $ transform state
 
-encryptFinalize :: [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
-encryptFinalize key state = state
+-- Round Nr: final transformation
+encryptFinalize :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+encryptFinalize round roundKeys state = state'
+  where transform = shiftRows . subBytes
+        state' = addRoundKey round roundKeys $ transform state
 
+-- Non-linear transformation mapping state to sbox(state)
 subBytes :: [[W.Word8]] -> [[W.Word8]]
-subBytes state = state
+subBytes = L.map subWord
 
+-- Shifts rows according to
+-- | b1  b2  b3  b4  |      | b1  b2  b3  b4  |
+-- | b5  b6  b7  b8  |  ->  | b6  b7  b8  b5  |
+-- | b8  b9  b10 b11 |      | b10 b11 b8  b9  |
+-- | b12 b13 b14 b15 |      | b15 b12 b13 b14 |
 shiftRows :: [[W.Word8]] -> [[W.Word8]]
-shiftRows state = state
+shiftRows [] = []
+shiftRows (x:xs) = x : shiftRows shifted
+  where shifted = L.map rotate xs
 
+-- Mixes columns based on below affine transformation
 mixColumns :: [[W.Word8]] -> [[W.Word8]]
-mixColumns state = state
+mixColumns state = L.transpose mixed
+  where transposed = L.transpose state
+        col0 = affinetransform $ head transposed
+        col1 = affinetransform $ transposed !! 1
+        col2 = affinetransform $ transposed !! 2
+        col3 = affinetransform $ transposed !! 3
+        mixed = [col0] ++ [col1] ++ [col2] ++ [col3]
 
-addRoundKey :: [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
-addRoundKey key state = state
+-- xors the state with the current round key
+addRoundKey :: Int -> [[W.Word8]] -> [[W.Word8]] -> [[W.Word8]]
+addRoundKey round roundKeys state = xorMatrix state roundKey []
+  where lowIdx = 4 * round
+        highIdx = 4 * round + 3
+        roundKey = L.transpose $ drop lowIdx $ take (highIdx + 1) roundKeys
 
 --------------------------------
 -- Rijndael Decrypt Functions --
@@ -156,7 +184,7 @@ invAddRoundKey key state = state
 -- Rijndael Key Schedule Functions --
 -------------------------------------
 
--- returns a matrix where each row is a "word" (4 bytes) and the number of rows is
+-- Expands the key where each row is a "word" (4 bytes) and the number of rows is
 -- 128 --> 44
 -- 192 --> 52
 -- 256 --> 60
@@ -168,28 +196,33 @@ keySchedule key = keyScheduleCore i numRows key key nk
         nr = nk + 6
         numRows = 4 * (nr + 1)
 
+-- Performs the bulk of the key expansion.
 keyScheduleCore :: Int -> Int -> [[W.Word8]] -> [[W.Word8]] -> Int -> [[W.Word8]]
 keyScheduleCore i numRows key derived nk
   | i == numRows    = derived
   | otherwise       = keyScheduleCore (i+1) numRows key (derived ++ [final]) nk
   where temp = derived !! (i-1)
         transformed = coreTransform i nk temp
-        final = xorWord (derived !! (i-nk)) transformed []
+        final = xorList (derived !! (i-nk)) transformed []
 
+-- Transforms the current word per Rijndael.
 coreTransform :: Int -> Int -> [W.Word8] -> [W.Word8]
 coreTransform i nk word
   | i `mod` nk == 0           = fullTransform
   | nk > 6 && i `mod` nk == 4 = partialTransform
   | otherwise                 = word
-  where fullTransform = xorRcon (subWord(rotate word)) (rcon (i `div` nk))
+  where fullTransform = xorByte (subWord(rotate word)) (rcon (i `div` nk))
         partialTransform = subWord word
 
+-- Substitutes an entire vector based on the sbox
 subWord :: [W.Word8] -> [W.Word8]
 subWord = L.map subByte
 
+-- Rotates a list by 1, e.g., [1,2,3] -> [2,3,1]
 rotate :: [a] -> [a]
 rotate (x:xs) = xs ++ [x]
 
+-- Returns the round constant
 rcon :: (Integral a) => a -> W.Word8
 rcon 1 = 1
 rcon 2 = 2
@@ -206,6 +239,7 @@ rcon 10 = 54
 -- Other Rijndael Functions --
 ------------------------------
 
+-- Returns a byte based on Rijndael sbox.
 subByte :: W.Word8 -> W.Word8
 subByte a = (sbox !! row) !! col
   where row = fromIntegral $ B.shiftR a 4 ::Int -- left most half byte
@@ -237,30 +271,80 @@ invSbox = L.transpose sbox
 -- Helper Functions --
 ----------------------
 
-xorRcon :: [W.Word8] -> W.Word8 -> [W.Word8]
-xorRcon (x:xs) rc = z:xs
-  where z = x `B.xor` rc
+-- We only need to implement multiplication by 2 and 3 in GF(2^8).
+-- Multiplication by 2 is equivalent to bit shifting by one and adding (xor)
+-- 0x1b (27) if the high bit was set.
+-- 3 x b = (2 xor 1) b = (2 x b) xor b
+fieldMult :: W.Word8 -> W.Word8 -> W.Word8
+fieldMult 2 b
+  | highBitSet = shifted `B.xor` 27 -- 27 = x^4 + x^3 + x + 1 
+  | otherwise  = shifted
+  where shifted = b `B.shiftL` 1
+        highBitSet = b B..&. 128 == 128
+fieldMult 3 b = b `B.xor` fieldMult 2 b -- 3 x b = (2 x b) xor b
 
-xorWord :: [W.Word8] -> [W.Word8] -> [W.Word8] -> [W.Word8]
-xorWord [] _ acc = acc
-xorWord _ [] acc = acc
-xorWord (x:xs) (y:ys) acc =
+-- Performs an affine transformation on the param vector based on the matrix
+-- | 2 3 1 1 |
+-- | 1 2 3 1 |
+-- | 1 1 2 3 |
+-- | 3 1 1 2 |
+-- Addition is xor and multiplication is in GF(2^8).
+affinetransform :: [W.Word8] -> [W.Word8]
+affinetransform vector = [bOne] ++ [bTwo] ++ [bThree] ++ [bFour]
+  where bOne = fieldMult 2 (head vector) `B.xor`
+               fieldMult 3 (vector !! 1) `B.xor`
+               vector !! 2 `B.xor`
+               vector !! 3
+        bTwo = head vector `B.xor`
+               fieldMult 2 (vector !! 1) `B.xor`
+               fieldMult 3 (vector !! 2) `B.xor`
+               vector !! 3
+        bThree = head vector `B.xor`
+                 vector !! 1 `B.xor`
+                 fieldMult 2 (vector !! 2) `B.xor`
+                 fieldMult 3 (vector !! 3)
+        bFour = fieldMult 3 (head vector) `B.xor`
+                vector !! 1 `B.xor`
+                vector !! 2 `B.xor`
+                fieldMult 2 (vector !! 3)
+
+-- Xors every elemnt in list with param.
+xorByte :: B.Bits a => [a] -> a -> [a]
+xorByte (x:xs) e = z:xs
+  where z = x `B.xor` e
+
+-- Xors every element in list X with corresponding element in list Y.
+xorList :: B.Bits a => [a] -> [a] -> [a] -> [a]
+xorList [] _ acc = acc
+xorList _ [] acc = acc
+xorList (x:xs) (y:ys) acc =
   let z = x `B.xor` y
-  in xorWord xs ys (acc ++ [z])
+  in xorList xs ys (acc ++ [z])
 
-applyFunToNthRowMatrix :: Int -> ([W.Word8] -> [W.Word8]) -> [[W.Word8]] -> [[W.Word8]]
+-- Xors every element in matrix X with corresponding element in matrix Y.
+xorMatrix :: B.Bits a => [[a]] -> [[a]] -> [[a]] -> [[a]]
+xorMatrix [] _ acc = acc
+xorMatrix _ [] acc = acc
+xorMatrix (x:xs) (y:ys) acc =
+  let r' = xorList x y []
+  in xorMatrix xs ys (acc ++ [r'])
+
+-- Applies function f to the nth row in the state matrix.
+applyFunToNthRowMatrix :: Int -> ([a] -> [a]) -> [[a]] -> [[a]]
 applyFunToNthRowMatrix n f state = pre ++ [modified] ++ post
   where row = state !! n
         pre = take n state
         modified = f row
         post = drop (n+1) state
 
-applyFunToNthColMatrix :: Int -> ([W.Word8] -> [W.Word8]) -> [[W.Word8]] -> [[W.Word8]]
+-- Applies function f to the nth column in the state matrix.
+applyFunToNthColMatrix :: Int -> ([a] -> [a]) -> [[a]] -> [[a]]
 applyFunToNthColMatrix n f state = L.transpose applied
   where transposed = L.transpose state
         applied = applyFunToNthRowMatrix n f transposed
 
-applyFunToElemMatrix :: Int -> Int -> (W.Word8 -> W.Word8) -> [[W.Word8]] -> [[W.Word8]]
+-- Applies function f to the a_ij th element in the state matrix.
+applyFunToElemMatrix :: Int -> Int -> (a -> a) -> [[a]] -> [[a]]
 applyFunToElemMatrix i j f state = pre ++ [row'] ++ post
   where row = state !! i
         pre = take i state
@@ -269,20 +353,24 @@ applyFunToElemMatrix i j f state = pre ++ [row'] ++ post
         row' = take j row ++ [element'] ++ drop (j+1) row
         post = drop (i+1) state
 
+-- Returns a bytestring based on the state matrix.
 stateToByteStr :: [[W.Word8]] -> BS.ByteString
 stateToByteStr matrix = byteStr
   where flatList = L.concat $ L.transpose matrix
         byteStr = BS.pack flatList
 
-flatListToMatrix :: Int -> [W.Word8] -> [[W.Word8]] -> [[W.Word8]]
+-- Returns a list in matrix form based on rowLen.
+flatListToMatrix :: Int -> [a] -> [[a]] -> [[a]]
 flatListToMatrix _ [] matrix = matrix
 flatListToMatrix rowLen l matrix = flatListToMatrix rowLen l' matrix'
   where row = take rowLen l
         l' = drop rowLen l
         matrix' = matrix ++ [row]
 
+-- Returns a Word8 list where each element in the list represents
+-- a byte, e.g. 42310 -> [165, 70], or 0xA546.
 intToWord8List :: Integer -> [W.Word8] -> [W.Word8]
 intToWord8List 0 acc = acc
 intToWord8List i acc = intToWord8List i' (byte:acc)
   where i' = B.shiftR i 8
-        byte = fromIntegral i :: W.Word8
+        byte = fromIntegral i
