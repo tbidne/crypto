@@ -43,7 +43,7 @@ spec = do
       let plaintext = "plaintext"
       let ciphertext = "ciphertext"
       let decrypted = "decrypted"
-      let contents = "why hello there"
+      let contents = "some longer unaligned message idk"
 
       callCommand $ "echo " ++ contents ++ " > " ++ plaintext
 
