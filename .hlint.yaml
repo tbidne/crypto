@@ -60,3 +60,4 @@
 # $ hlint --default > .hlint.yaml
 
 - ignore: {name: Redundant do, within: AESSpec}
+- ignore: {name: Redundant do, within: RSASpec}

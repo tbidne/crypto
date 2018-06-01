@@ -14,12 +14,13 @@ import qualified Data.Bits as B (shiftL, shiftR, xor, (.&.))
 import Data.Bits (Bits)
 import qualified Data.List as L (concat, map, transpose)
 import Data.Word (Word8)
-import qualified Data.Word as W (Word8)
 
 import System.Random (RandomGen)
 import qualified System.Random as R (newStdGen, randomR)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS (append, cons, drop, empty, pack, readFile, reverse, unpack, writeFile)
+
+import qualified Common
 
 -- Based on FIPS 197: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf
 -- TODO:
@@ -27,6 +28,7 @@ import qualified Data.ByteString.Lazy as BS (append, cons, drop, empty, pack, re
 -- folds
 -- testing
 -- refactor
+-- common utility file 
 
 ------------------
 -- IO Functions --
@@ -65,14 +67,14 @@ keygen g size = case size of
     | s `elem` [128, 192, 256] -> Just key
     | otherwise -> Nothing
     where num = fst $ R.randomR(2^(size-1), 2^size - 1) g :: Integer
-          bytes = intToWord8List num []
+          bytes = Common.intToWord8List num []
           key = BS.pack bytes
 
 -- Encrypts message m with key k
 encrypt :: ByteString -> ByteString -> ByteString
 encrypt k m = BS.cons numPadding encrypted
   where (maxRound, roundKeys) = setupForTransform k
-        (numPadding, padded) = padTo16 $ BS.unpack m
+        (numPadding, padded) = Common.padToN 16 $ BS.unpack m
         encrypted = ecb maxRound encryptInit roundKeys padded BS.empty
 
 -- Decrypts message c with key k
@@ -119,7 +121,7 @@ setupForTransform k = (maxRound, roundKeys)
 keyInit :: ByteString -> [[Word8]]
 keyInit bytes = key
   where flatKey = BS.unpack bytes
-        key = flatListToMatrix 4 flatKey []
+        key = Common.flatListToMatrix 4 flatKey []
 
 -- Turns ByteString representing 128 bit block into matrix e.g.
 -- | b1 b5 b9  b13 |
@@ -129,7 +131,7 @@ keyInit bytes = key
 -- Notice this matrix is the _transpose_ of how the key was interpreted
 stateInit :: [Word8] -> [[Word8]]
 stateInit byteList = state
-  where matrix = flatListToMatrix 4 byteList []
+  where matrix = Common.flatListToMatrix 4 byteList []
         state = L.transpose matrix
 
 --------------------------------
@@ -248,7 +250,7 @@ keyScheduleCore i numRows key derived nk
   | otherwise       = keyScheduleCore (i+1) numRows key (derived ++ [final]) nk
   where temp = derived !! (i-1)
         transformed = coreTransform i nk temp
-        final = xorList (derived !! (i-nk)) transformed []
+        final = Common.xorList (derived !! (i-nk)) transformed
 
 -- Transforms the current word per Rijndael.
 coreTransform :: Int -> Int -> [Word8] -> [Word8]
@@ -256,7 +258,7 @@ coreTransform i nk word
   | i `mod` nk == 0           = fullTransform
   | nk > 6 && i `mod` nk == 4 = partialTransform
   | otherwise                 = word
-  where fullTransform = xorByte (subWord(rotate word)) (rcon (i `div` nk))
+  where fullTransform = Common.xorByte (subWord(rotate word)) (rcon (i `div` nk))
         partialTransform = subWord word
 
 -- Substitutes an entire vector based on the sbox
@@ -291,7 +293,7 @@ rcon 10 = 54
 
 -- xors the state with the current round key
 addRoundKey :: Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
-addRoundKey round roundKeys state = xorMatrix state roundKey []
+addRoundKey round roundKeys state = Common.xorMatrix state roundKey
   where lowIdx = 4 * round
         highIdx = 4 * round + 3
         roundKey = L.transpose $ drop lowIdx $ take (highIdx + 1) roundKeys
@@ -418,53 +420,8 @@ invAffineTransform vector = [bOne] ++ [bTwo] ++ [bThree] ++ [bFour]
                  fieldMult 9  (vector !! 2) `B.xor`
                  fieldMult 14 (vector !! 3)
 
--- Xors every elemnt in list with param.
-xorByte :: Bits a => [a] -> a -> [a]
-xorByte [] _ = []
-xorByte (x:xs) e = z : xorByte xs e
-  where z = x `B.xor` e
-
--- Xors every element in list X with corresponding element in list Y.
-xorList :: Bits a => [a] -> [a] -> [a] -> [a]
-xorList [] _ acc = acc
-xorList _ [] acc = acc
-xorList (x:xs) (y:ys) acc =
-  let z = x `B.xor` y
-  in xorList xs ys (acc ++ [z])
-
--- Xors every element in matrix X with corresponding element in matrix Y.
-xorMatrix :: Bits a => [[a]] -> [[a]] -> [[a]] -> [[a]]
-xorMatrix [] _ acc = acc
-xorMatrix _ [] acc = acc
-xorMatrix (x:xs) (y:ys) acc =
-  let r' = xorList x y []
-  in xorMatrix xs ys (acc ++ [r'])
-
 -- Returns a bytestring based on the state matrix.
 stateToByteStr :: [[Word8]] -> ByteString
 stateToByteStr matrix = byteStr
   where flatList = L.concat $ L.transpose matrix
         byteStr = BS.pack flatList
-
--- Returns a list in matrix form based on rowLen.
-flatListToMatrix :: Int -> [a] -> [[a]] -> [[a]]
-flatListToMatrix _ [] matrix = matrix
-flatListToMatrix rowLen l matrix = flatListToMatrix rowLen l' matrix'
-  where row = take rowLen l
-        l' = drop rowLen l
-        matrix' = matrix ++ [row]
-
--- Returns a Word8 list where each element in the list represents
--- a byte, e.g. 42310 -> [165, 70], or 0xA546.
-intToWord8List :: Integer -> [Word8] -> [Word8]
-intToWord8List 0 acc = acc
-intToWord8List i acc = intToWord8List i' (byte:acc)
-  where i' = B.shiftR i 8
-        byte = fromIntegral i
-
-padTo16 :: [Word8] -> (Word8, [Word8])
-padTo16 bytes
-  | length bytes `mod` 16 == 0 = (0, bytes)
-  | otherwise = (fromIntegral numPadding, bytes ++ padded)
-  where numPadding = 16 - length bytes `mod` 16
-        padded = replicate numPadding 0
