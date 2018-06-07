@@ -20,8 +20,8 @@ spec = do
     it "should generate 2048 bit key" $ do
       keygen 2048 263 516
 
-    it "should generate 4096 bit key" $ do
-      keygen 4096 519 1028
+    --it "should generate 4096 bit key" $ do
+      --keygen 4096 519 1028
 
     it "should return Nothing for wrong bit key" $ do
       g <- newStdGen
@@ -35,8 +35,8 @@ spec = do
     it "should encrypt and decrypt file with 2048 bit key" $ do
       encryptAndDecrypt 2048
 
-    it "should encrypt and decrypt file with 4096 bit key" $ do
-      encryptAndDecrypt 4096
+    --it "should encrypt and decrypt file with 4096 bit key" $ do
+      --encryptAndDecrypt 4096
 
 keygen :: Int -> Int -> Int -> Expectation
 keygen sizeInBits expectedPk expectedSk = do
