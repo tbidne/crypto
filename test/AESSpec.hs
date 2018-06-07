@@ -15,22 +15,13 @@ spec :: Spec
 spec = do
   describe "keygen" $ do
     it "should generate 128 bit key" $ do
-      g <- newStdGen
-      let key = AES.keygen g 128
-      let k = unpack $ fromJust key
-      length k `shouldBe` 16
+      keygen 128 16
     
     it "should generate 192 bit key" $ do
-      g <- newStdGen
-      let key = AES.keygen g 192
-      let k = unpack $ fromJust key
-      length k `shouldBe` 24
+      keygen 192 24
 
     it "should generate 256 bit key" $ do
-      g <- newStdGen
-      let key = AES.keygen g 256
-      let k = unpack $ fromJust key
-      length k `shouldBe` 32
+      keygen 256 32
 
     it "should return Nothing for wrong bit key" $ do
       g <- newStdGen
@@ -38,20 +29,37 @@ spec = do
       isNothing key `shouldBe` True
 
   describe "IO end to end" $ do
-    it "should encrypt and decrypt file" $ do
-      let keyFile = "key_256"
-      let plaintext = "plaintext"
-      let ciphertext = "ciphertext"
-      let decrypted = "decrypted"
-      let contents = "some longer unaligned message idk"
+    it "should encrypt and decrypt file with 128 bit key" $ do
+      encryptAndDecrypt 128
 
-      callCommand $ "echo " ++ contents ++ " > " ++ plaintext
+    it "should encrypt and decrypt file with 192 bit key" $ do
+      encryptAndDecrypt 192
+      
+    it "should encrypt and decrypt file with 256 bit key" $ do
+      encryptAndDecrypt 256
 
-      AES.keygenIO 256 keyFile
-      AES.encryptIO keyFile plaintext ciphertext
-      AES.decryptIO keyFile ciphertext decrypted
+keygen :: Int -> Int -> Expectation
+keygen sizeInBits expectedBytes = do
+  g <- newStdGen
+  let key = AES.keygen g sizeInBits
+  let k = unpack $ fromJust key
+  length k `shouldBe` expectedBytes
 
-      result <- readFile decrypted
-      callCommand $ "rm " ++ keyFile ++ " " ++ plaintext ++ " " ++
-                    ciphertext ++ " " ++ " " ++ decrypted
-      result `shouldBe` contents ++ "\n"
+encryptAndDecrypt :: Int -> Expectation
+encryptAndDecrypt keySize = do
+  let keyFile = "key"
+  let plaintext = "plaintext"
+  let ciphertext = "ciphertext"
+  let decrypted = "decrypted"
+  let contents = "some longer unaligned message idk"
+
+  callCommand $ "echo " ++ contents ++ " > " ++ plaintext
+
+  AES.keygenIO keySize keyFile
+  AES.encryptIO keyFile plaintext ciphertext
+  AES.decryptIO keyFile ciphertext decrypted
+
+  result <- readFile decrypted
+  callCommand $ "rm " ++ keyFile ++ " " ++ plaintext ++ " " ++
+                ciphertext ++ " " ++ " " ++ decrypted
+  result `shouldBe` contents ++ "\n"
