@@ -1,12 +1,10 @@
 module RSA
-( keygen
+( keygenIO
+, encryptIO
+, decryptIO
+, keygen
 , encrypt
 , decrypt
-, modulus
-, publicExp
-, privateExp
-, rsaKeyToByteString
-, byteStringToRsaKey
 ) where
 
 import qualified Data.Bits as B (shiftL, shiftR)
@@ -17,71 +15,83 @@ import Data.Word (Word8)
 import System.Random (RandomGen)
 import System.Random as Random (next, newStdGen)
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS (append, cons, head, empty, pack, readFile, unpack, writeFile)
+import qualified Data.ByteString.Lazy as BS (append, cons, head, length, empty, pack, readFile, unpack, writeFile)
 
 import qualified AES
 import qualified NumberTheory as NT
 import qualified Common as C
 
 data Key = Key {
-  modulus :: !Integer
-, publicExp :: !Integer
-, privateExp :: !Integer
+  keyModulus :: !Integer
+, keyExponent :: !Integer
 }
 
--- TODO:
--- key tests
--- clean up key stuff
--- fix keys (dLen can be over 1 byte if key is > 1024 bits)
+keygenIO :: Int -> String -> String -> IO ()
+keygenIO size pubFileOut prvFileOut = do
+  g <- Random.newStdGen
+  let key = keygen g size
+  case key of
+    Nothing -> putStrLn "wrong file size"
+    Just (public, private) -> do
+      BS.writeFile pubFileOut public
+      BS.writeFile prvFileOut private
 
-keygen :: (RandomGen g, Integral a) => g -> a -> Maybe Key
+encryptIO :: String -> String -> String -> IO ()
+encryptIO keyFile fileIn fileOut = do
+  k <- BS.readFile keyFile
+  m <- BS.readFile fileIn
+  g <- Random.newStdGen
+  let encrypted = encrypt g k m
+  BS.writeFile fileOut encrypted
+
+decryptIO :: String -> String -> String -> IO ()
+decryptIO keyFile fileIn fileOut = do
+  k <- BS.readFile keyFile
+  c <- BS.readFile fileIn
+  let decrypted = decrypt k c
+  BS.writeFile fileOut decrypted
+
+keygen :: (RandomGen g, Integral a) => g -> a -> Maybe (ByteString, ByteString)
 keygen g size = case size of
   s 
-    | s `elem` [1024, 2048, 4096] -> Just key
+    | s `elem` [1024, 2048, 4096] -> Just (publicKey, privateKey)
     | otherwise -> Nothing
     where (p, q) = genModulus g size
           e = 65537
           d = NT.findInverse e p q
-          key = Key {modulus = p*q, publicExp = e, privateExp = d}
+          publicKey = keyToByteString Key {keyModulus = p*q, keyExponent = e}
+          privateKey = keyToByteString Key {keyModulus = p*q, keyExponent = d}
 
--- TODO: these will take a key file name and message file name
 encrypt :: (RandomGen g) => g -> ByteString -> ByteString -> ByteString
-encrypt g k m = BS.empty --encrypted
-  where aesKey = fromJust $ AES.keygen g 256
-        ciphertext = AES.encrypt aesKey m
-        rsaKey = BS.unpack k
-        encryptedKey = 0
+encrypt g k m = encryptedAesKey `BS.append` ciphertext
+  where aesKeyBytes = fromJust $ AES.keygen g 256
+        aesKeyInt = C.word8ListToInt $ BS.unpack aesKeyBytes
+        ciphertext = AES.encrypt aesKeyBytes m
+        Key {keyModulus = modulus, keyExponent = e} = byteStringToKey k
+        encryptedAesKey = C.intToByteString $ NT.powModN aesKeyInt e modulus
 
-rsaKeyToByteString :: Key -> (ByteString, ByteString)
-rsaKeyToByteString key = (publicKey, privateKey)
-  where m = C.intToWord8List (modulus key) []
-        e = C.intToWord8List (publicExp key) []
-        d = C.intToWord8List (privateExp key) []
-        mLen = fromIntegral $ length m
-        eLen = fromIntegral $ length e
-        dLen = fromIntegral $ length d
-        mBytes = BS.pack m
-        eBytes = BS.pack e
-        dBytes = BS.pack d
-        publicKey = BS.cons eLen eBytes `BS.append` BS.cons mLen mBytes
-        privateKey = BS.cons dLen dBytes `BS.append` BS.cons mLen mBytes
+decrypt :: ByteString -> ByteString -> ByteString
+decrypt k m = decryptedText
+  where Key {keyModulus = modulus, keyExponent = d} = byteStringToKey k
+        (encryptedAesKey, ciphertext) = C.byteStringToInt m
+        decryptedAesKey = NT.powModN encryptedAesKey d modulus
+        aesKeyBytes = BS.pack $ C.intToWord8List decryptedAesKey []
+        decryptedText = AES.decrypt aesKeyBytes ciphertext
 
-byteStringToRsaKey :: (ByteString, ByteString) -> Key
-byteStringToRsaKey (publicKey, privateKey) = key
-  where (eLen:pubBytes) = BS.unpack publicKey
-        eLen' = fromIntegral eLen
-        e = C.word8ListToInt $ take eLen' pubBytes
-        modulus = C.word8ListToInt $ drop (eLen'+1) pubBytes
-        (dLen:prvBytes) = BS.unpack privateKey
-        dLen' = fromIntegral dLen
-        d = C.word8ListToInt $ take dLen' prvBytes
-        key = Key {modulus = modulus, publicExp = e, privateExp = d}
-  
+keyToByteString :: Key -> ByteString
+keyToByteString key = eBytes `BS.append` mBytes
+  where  eBytes = C.intToByteString (keyExponent key)
+         mBytes = C.intToByteString (keyModulus key)
 
-decrypt = NT.powModN
+byteStringToKey :: ByteString -> Key
+byteStringToKey keyBytes = key
+  where (e, mBS) = C.byteStringToInt keyBytes
+        (m,_) = C.byteStringToInt mBS
+        key = Key {keyModulus = m, keyExponent = e}  
 
 genModulus :: (RandomGen a, Integral b) => a -> b -> (Integer, Integer)
 genModulus g size = (p, q)
   where p = NT.genPrime g $ size `div` 2
         q = NT.genPrime g' $ size `div` 2
         g' = snd $ Random.next g
+

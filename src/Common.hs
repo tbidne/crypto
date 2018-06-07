@@ -6,6 +6,8 @@ module Common
 , xorList
 , xorMatrix
 , flatListToMatrix
+, byteStringToInt
+, intToByteString
 )
 where
 
@@ -15,6 +17,7 @@ import Data.List
 import Data.Word (Word8)
 
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as BS (pack, unpack)
 
 padToN :: Int -> [Word8] -> (Word8, [Word8])
 padToN n bytes
@@ -54,3 +57,23 @@ flatListToMatrix rowLen l matrix = flatListToMatrix rowLen l' matrix'
   where row = take rowLen l
         l' = drop rowLen l
         matrix' = matrix ++ [row]
+
+-- Takes in a bytestring where the first two bytes are the length, l.
+-- Returns (i, rem) where i is the integer representation of the next
+-- l bytes, and rem is the remaining bytes, if any.
+byteStringToInt :: ByteString -> (Integer, ByteString)
+byteStringToInt bytes = (i, remaining)
+  where byteList = BS.unpack bytes
+        len = fromIntegral $ word8ListToInt $ take 2 byteList
+        i = word8ListToInt $ take len (drop 2 byteList)
+        remaining = BS.pack $ drop (len+2) byteList
+
+-- Turns an integer i into bytestring where the first 2 bytes are the
+-- length of the new string.
+intToByteString :: Integer -> ByteString
+intToByteString i
+  | numPadding == 0 = BS.pack $ bytesLen ++ byteList
+  | otherwise = BS.pack $ reverse bytesLen ++ byteList
+  where byteList = intToWord8List i []
+        len = fromIntegral $ length byteList
+        (numPadding, bytesLen) = padToN 2 $ intToWord8List len []

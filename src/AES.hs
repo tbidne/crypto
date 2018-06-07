@@ -39,7 +39,7 @@ keygenIO size filename = do
   g <- R.newStdGen
   let key = keygen g size
   case key of
-    Nothing -> putStrLn "wrong file size"
+    Nothing -> putStrLn "wrong key size"
     Just k -> BS.writeFile filename k
 
 encryptIO :: String -> String -> String -> IO ()

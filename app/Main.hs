@@ -27,21 +27,45 @@ keygen (x:xs) = do
   let algorithm = x
   case algorithm of
     "aes" -> keygenAES xs
-    _     -> print "Valid keygen algorithms are: aes"
+    "rsa" -> keygenRSA xs
+    _     -> print "Valid keygen algorithms are: aes, rsa"
 
 encrypt :: [String] -> IO ()
 encrypt (x:xs) = do
   let algorithm = x
   case algorithm of
     "aes" -> encryptAES xs
-    _     -> print "Valid encrypt algorithms are: aes"
+    "rsa" -> encryptRSA xs
+    _     -> print "Valid encrypt algorithms are: aes, rsa"
 
 decrypt :: [String] -> IO ()
 decrypt (x:xs) = do
   let algorithm = x
   case algorithm of
     "aes" -> decryptAES xs
-    _     -> print "Valid decrypt algorithms are: aes"
+    "rsa" -> decryptRSA xs
+    _     -> print "Valid decrypt algorithms are: aes, rsa"
+
+---------
+-- RSA --
+---------
+
+keygenRSA :: [String] -> IO ()
+keygenRSA args = do
+  let size = read $ head args
+  let pubFileOut = args !! 1
+  let prvFileOut = args !! 2
+  RSA.keygenIO size pubFileOut prvFileOut
+
+encryptRSA :: [String] -> IO ()
+encryptRSA args = do
+  let (key, fileIn, fileOut) = setup args
+  RSA.encryptIO key fileIn fileOut
+
+decryptRSA :: [String] -> IO ()
+decryptRSA args = do
+  let (key, fileIn, fileOut) = setup args
+  RSA.decryptIO key fileIn fileOut
 
 ---------
 -- AES --
@@ -55,16 +79,20 @@ keygenAES args = do
 
 encryptAES :: [String] -> IO ()
 encryptAES args = do
-  let (key, fileIn, fileOut) = setupAES args
+  let (key, fileIn, fileOut) = setup args
   AES.encryptIO key fileIn fileOut
 
 decryptAES :: [String] -> IO ()
 decryptAES args = do
-  let (key, fileIn, fileOut) = setupAES args
+  let (key, fileIn, fileOut) = setup args
   AES.decryptIO key fileIn fileOut
 
-setupAES :: [String] -> (String, String, String)
-setupAES (x:xs) = (key, fileIn, fileOut)
+------------
+-- Helper --
+------------
+
+setup :: [String] -> (String, String, String)
+setup (x:xs) = (key, fileIn, fileOut)
   where key = x
         fileIn = head xs
         fileOut = xs !! 1
