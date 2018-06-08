@@ -27,6 +27,7 @@ library:
     - AES
     - Common
     - RSA
+    - RSAInternal
     - NumberTheory
   source-dirs:
     - src
