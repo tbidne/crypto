@@ -22,7 +22,7 @@ import qualified Data.ByteString.Lazy as BS (pack, unpack)
 padToN :: Int -> [Word8] -> (Word8, [Word8])
 padToN n bytes
   | length bytes `mod` n == 0 = (0, bytes)
-  | otherwise = (fromIntegral numPadding, bytes ++ padded)
+  | otherwise                 = (fromIntegral numPadding, bytes ++ padded)
   where numPadding = n - length bytes `mod` n
         padded = replicate numPadding 0
 

@@ -11,6 +11,8 @@ import Test.Hspec
 
 import qualified RSA
 
+-- apparently the 4096 bit tests are too much for travis
+
 spec :: Spec
 spec = do
   describe "keygen" $ do
@@ -45,8 +47,8 @@ keygen sizeInBits expectedPk expectedSk = do
   let (pk, sk) = fromJust key
   let pkLen = length $ unpack pk
   let skLen = length $ unpack sk
-  pkLen `shouldBe` expectedPk
-  skLen `shouldBe` expectedSk
+  pkLen `shouldSatisfy` (\x -> x `elem` [expectedPk-1..expectedPk+1])
+  skLen `shouldSatisfy` (\x -> x `elem` [expectedSk-1..expectedSk+1])
 
 encryptAndDecrypt :: Int -> Expectation
 encryptAndDecrypt keySize = do
@@ -59,7 +61,7 @@ encryptAndDecrypt keySize = do
 
   callCommand $ "echo " ++ contents ++ " > " ++ plaintext
 
-  RSA.keygenIO 4096 pubKey prvKey
+  RSA.keygenIO keySize pubKey prvKey
   RSA.encryptIO pubKey plaintext ciphertext
   RSA.decryptIO prvKey ciphertext decrypted
 

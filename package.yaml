@@ -25,9 +25,12 @@ dependencies:
 library:
   exposed-modules:
     - AES
+    - Common
     - RSA
     - NumberTheory
-  source-dirs: src
+  source-dirs:
+    - src
+    - src/internal
   dependencies:
     - bytestring
     - random
@@ -38,6 +41,7 @@ executables:
     source-dirs:
       - app
       - src
+      - src/Internal
     ghc-options:
       - -threaded
       - -rtsopts
