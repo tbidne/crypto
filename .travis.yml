@@ -1,6 +1,5 @@
 sudo: false
 language: c
-os: osx
 cache:
   directories:
   - $HOME/.stack

@@ -42,7 +42,7 @@ executables:
     source-dirs:
       - app
       - src
-      - src/Internal
+      - src/internal
     ghc-options:
       - -threaded
       - -rtsopts
