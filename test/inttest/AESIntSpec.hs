@@ -1,4 +1,4 @@
-module AESSpec
+module AESIntSpec
 ( spec
 )
 where
@@ -13,21 +13,6 @@ import qualified AES
 
 spec :: Spec
 spec = do
-  describe "keygen" $ do
-    it "should generate 128 bit key" $ do
-      keygen 128 16
-    
-    it "should generate 192 bit key" $ do
-      keygen 192 24
-
-    it "should generate 256 bit key" $ do
-      keygen 256 32
-
-    it "should return Nothing for wrong bit key" $ do
-      g <- newStdGen
-      let key = AES.keygen g 100
-      isNothing key `shouldBe` True
-
   describe "IO end to end" $ do
     it "should encrypt and decrypt file with 128 bit key" $ do
       encryptAndDecrypt 128
@@ -37,13 +22,6 @@ spec = do
       
     it "should encrypt and decrypt file with 256 bit key" $ do
       encryptAndDecrypt 256
-
-keygen :: Int -> Int -> Expectation
-keygen sizeInBits expectedBytes = do
-  g <- newStdGen
-  let key = AES.keygen g sizeInBits
-  let k = unpack $ fromJust key
-  length k `shouldBe` expectedBytes
 
 encryptAndDecrypt :: Int -> Expectation
 encryptAndDecrypt keySize = do

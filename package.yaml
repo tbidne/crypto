@@ -52,9 +52,22 @@ executables:
       - random
 
 tests:
-  crypto-test:
+  spec:
     main: Spec.hs
-    source-dirs: test
+    source-dirs: test/spec
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - bytestring
+      - crypto
+      - hspec
+      - process
+      - random
+  inttest:
+    main: Spec.hs
+    source-dirs: test/inttest
     ghc-options:
       - -threaded
       - -rtsopts

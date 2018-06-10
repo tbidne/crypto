@@ -62,3 +62,5 @@
 - ignore: {name: Redundant do, within: AESSpec}
 - ignore: {name: Redundant do, within: RSASpec}
 - ignore: {name: Redundant do, within: CommonSpec}
+- ignore: {name: Redundant do, within: RSAIntSpec}
+- ignore: {name: Redundant do, within: AESIntSpec}
