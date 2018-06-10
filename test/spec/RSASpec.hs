@@ -20,9 +20,6 @@ spec = do
     it "should generate 2048 bit key" $ do
       keygen 2048 263 516
 
-    it "should generate 4096 bit key" $ do
-      keygen 4096 519 1028
-
     it "should return Nothing for wrong bit key" $ do
       g <- newStdGen
       let key = RSA.keygen g 1000
