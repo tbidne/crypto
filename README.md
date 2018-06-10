@@ -6,7 +6,7 @@ This is for educational purposes only, NOT intended for actual use.
 
 Build with `stack build --ghc-options="-O2"`
 
-Test with `stack test`
+Test with `stack test :spec`, `stack test :inttest`, or just `stack test`, to run the specs, int tests, or everything, respectively. Only the specs are run on travis since the latter can't handle the 4096 bit rsa tests, apparently.
 
 AES can use 128, 192, or 256 bit keys. Only block cipher mode right now is ECB :-(
 
