@@ -9,7 +9,7 @@ import System.Process (callCommand)
 import System.Random (newStdGen)
 import Test.Hspec
 
-import qualified RSA
+import qualified RSA.API as RSA
 
 spec :: Spec
 spec = do

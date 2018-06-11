@@ -1,8 +1,8 @@
 module Main where
 
 import qualified System.Environment as Env
-import qualified RSA
-import qualified AES
+import qualified RSA.API as RSA
+import qualified AES.API as AES
 
 -------------------
 -- Parse Command --

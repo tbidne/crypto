@@ -1,90 +1,20 @@
-module AES
-( keygenIO
-, encryptIO
-, decryptIO
-, keygen
-, encrypt
-, decrypt
+module AES.Internal
+( setupForTransform
+, ecb
+, encryptInit
+, decryptInit
 )
 where
-
-import Prelude hiding (round)
 
 import qualified Data.Bits as B (shiftL, shiftR, xor, (.&.))
 import Data.Bits (Bits)
 import qualified Data.List as L (concat, map, transpose)
 import Data.Word (Word8)
 
-import System.Random (RandomGen)
-import qualified System.Random as R (newStdGen, randomR)
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS (append, cons, drop, empty, pack, readFile, reverse, unpack, writeFile)
+import qualified Data.ByteString.Lazy as BS (append, drop, pack, reverse, unpack)
 
 import qualified Common
-
--- Based on FIPS 197: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf
--- TODO:
--- modes (CBC, counter)
--- folds
--- testing
--- refactor
--- common utility file 
-
-------------------
--- IO Functions --
-------------------
-
-keygenIO :: Int -> String -> IO ()
-keygenIO size filename = do
-  g <- R.newStdGen
-  let key = keygen g size
-  case key of
-    Nothing -> putStrLn "wrong key size"
-    Just k -> BS.writeFile filename k
-
-encryptIO :: String -> String -> String -> IO ()
-encryptIO keyFile fileIn fileOut = do
-  k <- BS.readFile keyFile
-  m <- BS.readFile fileIn
-  let encrypted = encrypt k m
-  BS.writeFile fileOut encrypted
-
-decryptIO :: String -> String -> String -> IO ()
-decryptIO keyFile fileIn fileOut = do
-  k <- BS.readFile keyFile
-  c <- BS.readFile fileIn
-  let decrypted = decrypt k c
-  BS.writeFile fileOut decrypted
-
--------------------
--- API Functions --
--------------------
-
--- Generates number in [2^(n-1)], 2^n - 1], turns into ByteString
-keygen :: (RandomGen a) => a -> Int -> Maybe ByteString
-keygen g size = case size of
-  s 
-    | s `elem` [128, 192, 256] -> Just key
-    | otherwise -> Nothing
-    where num = fst $ R.randomR(2^(size-1), 2^size - 1) g :: Integer
-          bytes = Common.intToWord8List num []
-          key = BS.pack bytes
-
--- Encrypts message m with key k
-encrypt :: ByteString -> ByteString -> ByteString
-encrypt k m = BS.cons numPadding encrypted
-  where (maxRound, roundKeys) = setupForTransform k
-        (numPadding, padded) = Common.padToN 16 $ BS.unpack m
-        encrypted = ecb maxRound encryptInit roundKeys padded BS.empty
-
--- Decrypts message c with key k
-decrypt :: ByteString -> ByteString -> ByteString
-decrypt k c = unpadded
-  where (maxRound, roundKeys) = setupForTransform k
-        byteList = BS.unpack c
-        numPadding = fromIntegral $ head byteList
-        decrypted = ecb maxRound decryptInit roundKeys (drop 1 byteList) BS.empty
-        unpadded = BS.reverse $ BS.drop numPadding $ BS.reverse decrypted
 
 ---------------------------------
 -- Block Cipher Mode Functions --

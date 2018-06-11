@@ -1,4 +1,4 @@
-module RSA
+module RSA.API
 ( keygenIO
 , encryptIO
 , decryptIO
@@ -11,15 +11,15 @@ import Data.Maybe (fromJust)
 import Data.Word (Word8)
 
 import System.Random (RandomGen)
-import System.Random as R (newStdGen)
+import qualified System.Random as R (newStdGen)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS (append, pack, readFile, unpack, writeFile)
 
-import qualified AES
+import qualified AES.API as AES
 import qualified Common as C
 import qualified NumberTheory as NT
-import RSAInternal (Key (..))
-import qualified RSAInternal as Internal
+import RSA.Internal (Key (..))
+import qualified RSA.Internal as Internal
 
 keygenIO :: Integral a => a -> String -> String -> IO ()
 keygenIO size pubFileOut prvFileOut = do

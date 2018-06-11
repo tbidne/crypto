@@ -1,4 +1,4 @@
-module AESSpec
+module AES.APISpec
 ( spec
 )
 where
@@ -9,7 +9,7 @@ import System.Process (callCommand)
 import System.Random (newStdGen)
 import Test.Hspec
 
-import qualified AES
+import qualified AES.API as AES
 
 spec :: Spec
 spec = do

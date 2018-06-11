@@ -1,4 +1,4 @@
-module RSAInternal
+module RSA.Internal
 ( Key (..)
 , keyToByteString
 , byteStringToKey
@@ -17,7 +17,7 @@ import qualified NumberTheory as NT
 data Key = Key {
   keyModulus :: !Integer
 , keyExponent :: !Integer
-}
+} deriving (Eq, Show)
 
 keyToByteString :: Key -> ByteString
 keyToByteString key = eBytes `BS.append` mBytes
