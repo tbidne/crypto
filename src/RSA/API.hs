@@ -8,7 +8,7 @@ module RSA.API
 ) where
 
 import Data.Maybe (fromJust)
-import Data.Word (Word8)
+import Data.Word()
 
 import System.Random (RandomGen)
 import qualified System.Random as R (newStdGen)

@@ -3,9 +3,8 @@ module AES.APISpec
 )
 where
 
-import Data.ByteString.Lazy (ByteString, unpack, writeFile)
+import Data.ByteString.Lazy (unpack)
 import Data.Maybe (fromJust, isNothing)
-import System.Process (callCommand)
 import System.Random (newStdGen)
 import Test.Hspec
 

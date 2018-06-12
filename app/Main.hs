@@ -23,6 +23,7 @@ main = do
 -------------------
 
 keygen :: [String] -> IO ()
+keygen [] = print "usage: keygen <algorithm>"
 keygen (x:xs) = do
   let algorithm = x
   case algorithm of
@@ -31,6 +32,7 @@ keygen (x:xs) = do
     _     -> print "Valid keygen algorithms are: aes, rsa"
 
 encrypt :: [String] -> IO ()
+encrypt [] = print "usage: encrypt <algorithm>"
 encrypt (x:xs) = do
   let algorithm = x
   case algorithm of
@@ -39,6 +41,7 @@ encrypt (x:xs) = do
     _     -> print "Valid encrypt algorithms are: aes, rsa"
 
 decrypt :: [String] -> IO ()
+decrypt [] = print "usage: decrypt <algorithm>"
 decrypt (x:xs) = do
   let algorithm = x
   case algorithm of
@@ -52,7 +55,7 @@ decrypt (x:xs) = do
 
 keygenRSA :: [String] -> IO ()
 keygenRSA args = do
-  let size = read $ head args
+  let size = read $ head args :: Integer
   let pubFileOut = args !! 1
   let prvFileOut = args !! 2
   RSA.keygenIO size pubFileOut prvFileOut
@@ -92,6 +95,7 @@ decryptAES args = do
 ------------
 
 setup :: [String] -> (String, String, String)
+setup [] = ("", "", "")
 setup (x:xs) = (key, fileIn, fileOut)
   where key = x
         fileIn = head xs

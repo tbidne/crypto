@@ -11,7 +11,7 @@ import qualified System.Random as Random
 -- size = bit size of desired prime
 genPrime :: (Random.RandomGen a, Integral b) => a -> b -> Integer
 genPrime g size
-  | millerRabin g n 10 = n
+  | millerRabin g n (10::Integer) = n
   | otherwise          = genPrime g' size
   where rand = Random.randomR(2^(size-1), 2^size - 1) g
         n = fst rand
@@ -72,7 +72,7 @@ maxPowTwoDivisor n i
 
 -- returns a^d mod n
 powModN :: Integral a => a -> a -> a -> a
-powModN a 1 n = a
+powModN a 1 _ = a
 powModN a d n = (a^(d `mod` 2) * powModN (a*a `mod` n) (d `div` 2) n) `mod` n
 
 -- finds the multiplicative inverse of a mod phi(p*q)
@@ -80,7 +80,7 @@ findInverse :: (Integral a) => a -> a -> a -> a
 findInverse a p q
   | x > 0     = x
   | otherwise = totient + x
-  where (g, x, y) = bezout a totient
+  where (_, x, _) = bezout a totient
         totient = (p-1) * (q-1)
 
 -- returns (g, x, y) where ax + by = g = gcd(a, b) using the

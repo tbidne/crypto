@@ -6,13 +6,15 @@ module AES.Internal
 )
 where
 
+import Prelude hiding (round)
+
 import qualified Data.Bits as B (shiftL, shiftR, xor, (.&.))
-import Data.Bits (Bits)
+import Data.Bits()
 import qualified Data.List as L (concat, map, transpose)
 import Data.Word (Word8)
 
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS (append, drop, pack, reverse, unpack)
+import qualified Data.ByteString.Lazy as BS (append, pack, unpack)
 
 import qualified Common
 
@@ -216,6 +218,7 @@ rcon 7 = 64
 rcon 8 = 128
 rcon 9 = 27
 rcon 10 = 54
+rcon _ = 0
 
 ------------------------------
 -- Other Rijndael Functions --
@@ -299,6 +302,7 @@ fieldMult 9 b =  B.xor b (fieldMult 2 (fieldMult 2 (fieldMult 2 b)))
 fieldMult 11 b = B.xor b (fieldMult 2 (B.xor b (fieldMult 2 (fieldMult 2 b))))
 fieldMult 13 b = B.xor b (fieldMult 2 (fieldMult 2 (B.xor b (fieldMult 2 b))))
 fieldMult 14 b = fieldMult 2 (B.xor b (fieldMult 2 (B.xor b (fieldMult 2 b))))
+fieldMult _ _ = 0
 
 -- Performs an affine transformation on the param vector based on the matrix
 -- | 2 3 1 1 |

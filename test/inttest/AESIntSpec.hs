@@ -3,10 +3,7 @@ module AESIntSpec
 )
 where
 
-import Data.ByteString.Lazy (ByteString, unpack, writeFile)
-import Data.Maybe (fromJust, isNothing)
 import System.Process (callCommand)
-import System.Random (newStdGen)
 import Test.Hspec
 
 import qualified AES.API as AES

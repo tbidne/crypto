@@ -25,6 +25,8 @@ spec = do
   describe "genModulus" $ do
     it "should generate a modulus in range" $ do
       g <- R.newStdGen
-      let (p,q) = genModulus g 512
-      p `shouldSatisfy` (\x -> x >= 2^255 && x < 2^256)
-      q `shouldSatisfy` (\x -> x >= 2^255 && x < 2^256)
+      let (p,q) = genModulus g (512::Integer)
+      let lo = (2::Integer) ^ (255::Integer)
+      let hi = (2::Integer) ^ (256::Integer)
+      p `shouldSatisfy` (\x -> x >= lo && x < hi)
+      q `shouldSatisfy` (\x -> x >= lo && x < hi)

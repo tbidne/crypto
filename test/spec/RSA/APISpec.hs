@@ -3,9 +3,8 @@ module RSA.APISpec
 )
 where
 
-import Data.ByteString.Lazy (ByteString, unpack, writeFile)
+import Data.ByteString.Lazy (unpack)
 import Data.Maybe (fromJust, isNothing)
-import System.Process (callCommand)
 import System.Random (newStdGen)
 import Test.Hspec
 
@@ -22,7 +21,7 @@ spec = do
 
     it "should return Nothing for wrong bit key" $ do
       g <- newStdGen
-      let key = RSA.keygen g 1000
+      let key = RSA.keygen g (1000 :: Integer)
       isNothing key `shouldBe` True
 
 keygen :: Int -> Int -> Int -> Expectation
