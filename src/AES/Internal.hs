@@ -3,6 +3,8 @@ module AES.Internal
 , ecb
 , encryptInit
 , decryptInit
+, rotate
+, fieldMult
 )
 where
 

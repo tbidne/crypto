@@ -60,6 +60,7 @@
 # $ hlint --default > .hlint.yaml
 
 - ignore: {name: Redundant do, within: AES.APISpec}
+- ignore: {name: Redundant do, within: AES.InternalSpec}
 - ignore: {name: Redundant do, within: RSA.APISpec}
 - ignore: {name: Redundant do, within: RSA.InternalSpec}
 - ignore: {name: Redundant do, within: CommonSpec}

@@ -25,6 +25,7 @@ dependencies:
 library:
   exposed-modules:
     - AES.API
+    - AES.Internal
     - Common
     - RSA.API
     - RSA.Internal
