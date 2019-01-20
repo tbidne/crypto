@@ -7,103 +7,261 @@
 @package crypto
 @version 0.1.0.0
 
+
+-- | Exports utility functions.
 module Common
+
+-- | Takes an <a>Int</a> <tt>n</tt> and a <a>Word8</a> list <tt>w</tt> and
+--   returns a tuple <tt>(a, [b])</tt> where <tt>[b]</tt> is <tt>w</tt>
+--   padded with zeroes to the nearest <i>greater</i> multiple of
+--   <tt>n</tt> and <tt>a</tt> is the amount of padding needed.
+--   
+--   Example:
+--   
+--   <pre>
+--   padToN 3 [23,12,64,32] -&gt; (2,[23,12,64,32,0,0])
+--   padToN 3 [23,12,64,32,6,42] -&gt; (0,[23,12,64,32,6,42])
+--   </pre>
 padToN :: Int -> [Word8] -> (Word8, [Word8])
+
+-- | Converts an <a>Integer</a> into a <a>Word8</a> list where each element
+--   in the list represents a byte. The inverse of <a>word8ListToInt</a>.
+--   
+--   Example:
+--   
+--   <pre>
+--   intToWord8List 42310 -&gt; [165, 70], or 0xA546.
+--   intToWord8List 52582001236900766738172 -&gt; [11,34,121,219,13,148,44,170,230,252], or 0xB2279DB0D942CAAE6FC.
+--   </pre>
 intToWord8List :: Integer -> [Word8] -> [Word8]
+
+-- | Converts a <a>Word8</a> list of bytes into an <a>Integer</a>. The
+--   inverse of <a>intToWord8List</a>.
+--   
+--   Example:
+--   
+--   <pre>
+--   word8ListToInt [165,70] -&gt; 42310
+--   word8ListToInt [11,34,121,219,13,148,44,170,230,252] -&gt; 52582001236900766738172
+--   </pre>
 word8ListToInt :: [Word8] -> Integer
+
+-- | Xors every element in a <tt>Bit</tt> list with the parameter
+--   <tt>Bit</tt>.
+--   
+--   Example:
+--   
+--   <pre>
+--   xorByte [b1, b2 ... bn] b -&gt; [b1 ⊕ b, b2 ⊕ b ... bn ⊕ b]
+--   </pre>
 xorByte :: Bits a => [a] -> a -> [a]
+
+-- | For two <tt>Bit</tt> lists, returns a new list with each corresponding
+--   <tt>Bit</tt> xor'd.
+--   
+--   Example:
+--   
+--   <pre>
+--   xorList [b1, b2 ... bn] [c1, c2 ... cn] -&gt; [b1 ⊕ c1, b2 ⊕ c2 ... bn ⊕ cn]
+--   </pre>
 xorList :: Bits a => [a] -> [a] -> [a]
+
+-- | For two <tt>Bit</tt> matrices, returns a new matrix with each
+--   corresponding <tt>Bit</tt> xor'd.
+--   
+--   Example:
+--   
+--   <pre>
+--   xorMatrix [[b11, b12] [b12, b22]] [[c11, c12] [c12, c22]] -&gt; [[b11 ⊕ c11, b12 ⊕ c12] [b12 ⊕ c12, b22 ⊕ c22]]
+--   </pre>
 xorMatrix :: Bits a => [[a]] -> [[a]] -> [[a]]
+
+-- | For <a>Integer</a> <tt>n</tt>, list <tt>xs</tt>, and starting matrix
+--   <tt>m</tt>, transforms <tt>m</tt> into an <tt>n x n</tt> matrix
+--   representation for <tt>xs</tt>.
+--   
+--   Example:
+--   
+--   <pre>
+--   flatListToMatrix 4 [b1 ... b16] -&gt; [[b1 ... b4], [b5 ... b8], [b9 ... b12], [b13 ... n16]]
+--   </pre>
 flatListToMatrix :: Int -> [a] -> [[a]] -> [[a]]
+
+-- | For a <a>ByteString</a> <tt>lb</tt>, where <tt>l</tt> is the two-byte
+--   representation of the integer <i>length</i> of the next integer in
+--   <tt>b</tt>, returns <tt>(i, rem)</tt> where <tt>i</tt> is integer
+--   representation of the next <tt>l</tt> bytes in <tt>b</tt>, and
+--   <tt>rem</tt> is the remaining bytes, if any.
+--   
+--   Example:
+--   
+--   <pre>
+--   byteStringToInt (pack [0,4,234,66,25,181,43,23]) -&gt; (3930200501, pack [43,23]) (l = 04, b = [234,66,25,181] or 0xEA4219B5)
+--   </pre>
 byteStringToInt :: ByteString -> (Integer, ByteString)
+
+-- | Turns an <a>Integer</a> into <a>ByteString</a> <tt>lb</tt> where
+--   <tt>b</tt> is <tt>n</tt>'s <a>ByteString</a> representation and
+--   <tt>l</tt> is its two-byte length.
+--   
+--   Example:
+--   
+--   <pre>
+--   intToByteString 3930200501 -&gt; pack [0,4,234,66,25,181]
+--   </pre>
 intToByteString :: Integer -> ByteString
 
+
+-- | Internal functions used for AES.
+module AES.Internal
+
+-- | Takes an <a>Int</a> <tt>maxRound</tt>, encryption function <tt>f</tt>,
+--   [[<a>Word8</a>]] <tt>roundKeys</tt>, [<a>Word8</a>] message, and
+--   starting matrix []. Encrypts each block with <tt>f</tt> and
+--   concatenates all blocks together.
+ecb :: Int -> (Int -> [[Word8]] -> [[Word8]] -> [[Word8]]) -> [[Word8]] -> [Word8] -> ByteString -> ByteString
+
+-- | For <a>ByteString</a> <tt>key</tt>, returns <tt>(maxRound,
+--   roundKeys)</tt>.
+setupForTransform :: ByteString -> (Int, [[Word8]])
+
+-- | Round 0 Takes an <a>Int</a> <tt>maxRound</tt>, [[<a>Word8</a>]]
+--   <tt>roundKeys</tt>, [<a>Word8</a>] state, and returns the modified
+--   state.
+encryptInit :: Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
+
+-- | Round Nr Takes an <a>Int</a> <tt>maxRound</tt>, [[<a>Word8</a>]]
+--   <tt>roundKeys</tt>, [<a>Word8</a>] state, and returns the modified
+--   state.
+decryptInit :: Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
+
+-- | Rotates a list by 1.
+--   
+--   <pre>
+--   rotate [1,2,3] -&gt; [2,3,1]
+--   </pre>
+rotate :: [a] -> [a]
+
+-- | We only need to implement multiplication by 2 and 3 in GF(2^8) for
+--   encryption, 9, 11, 13, and 14 for decryption. Multiplication by 2 is
+--   equivalent to bit shifting by one and adding (xor) 0x1b (27) if the
+--   high bit was set. 3 x b = (2 xor 1) b = (2 x b) xor b
+fieldMult :: Word8 -> Word8 -> Word8
+
+
+-- | This is the API for the main AES functions. Supports 128, 192, and 256
+--   bit keys. Only supports ECB mode as of now.
+--   
+--   Based on FIPS 197:
+--   <a>https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf</a>
 module AES.API
 
--- | Takes an <a>Int</a> <tt>size</tt> and a <a>String</a>
---   <tt>filename</tt>. Generates a key based on <a>keygen</a> and writes
---   the key to the file.
+-- | For <a>Integral</a> <tt>n</tt> and <a>String</a> <tt>fileOut</tt>,
+--   creates an <tt>n</tt> bit key pair and writes the key to
+--   <tt>fileOut</tt>.
 keygenIO :: Int -> String -> IO ()
 
--- | Takes 3 <a>String</a>s, <tt>keyFile</tt>, <tt>fileIn</tt>,
---   <tt>fileOut</tt>. <tt>fileIn</tt> is encrypted based on <a>encrypt</a>
---   with <tt>keyFile</tt>, and the ciphertext is written to
+-- | For <a>String</a>s <tt>keyFile</tt>, <tt>fileIn</tt>,
+--   <tt>fileOut</tt>, uses the key in <tt>keyFile</tt> to encrypt the
+--   contents of <tt>fileIn</tt>, writing the ciphertext to
 --   <tt>fileOut</tt>.
 encryptIO :: String -> String -> String -> IO ()
 
--- | Takes 3 <a>String</a>s, <tt>keyFile</tt>, <tt>fileIn</tt>,
---   <tt>fileOut</tt>. <tt>fileIn</tt> is decrypted based on <a>decrypt</a>
---   with <tt>keyFile</tt>, and the decrypted text is written to
---   <tt>fileOut</tt>.
+-- | For <a>String</a>s <tt>keyFile</tt>, <tt>fileIn</tt>,
+--   <tt>fileOut</tt>, uses the key in <tt>keyFile</tt> to decrypt the
+--   contents of <tt>fileIn</tt>, writing the message to <tt>fileOut</tt>.
 decryptIO :: String -> String -> String -> IO ()
 
--- | Takes a <a>RandomGen</a> <tt>g</tt>, <a>Int</a> <tt>size</tt>. If
---   <tt>size</tt> is one of 128, 192, or 256 then generates a number
---   <tt>n</tt> in <tt>[2^(size-1), 2^size - 1]</tt> and returns
---   <a>Just</a> <a>ByteString</a> based on <tt>n</tt>. Otherwise returns
---   <a>Nothing</a>.
+-- | For <a>RandomGen</a> g and <a>Integral</a> <tt>n</tt> in <tt>(128,
+--   192, 256)</tt>, returns <a>Just</a> <tt>key</tt>. If <tt>n</tt> is not
+--   a valid key-size then returns <a>Nothing</a>.
 keygen :: (RandomGen a) => a -> Int -> Maybe ByteString
 
--- | Takes in two <tt>ByteStrings</tt>, <tt>k</tt>, <tt>m</tt> representing
---   the <tt>key</tt> and <tt>message</tt> to be encrypted. Returns the
---   encrypted <a>ByteString</a>.
+-- | For <a>ByteString</a>s <tt>k</tt> and <tt>m</tt>, returns the
+--   encrypted <a>ByteString</a> ciphertext. If AES keygen fails then
+--   returns <a>empty</a>.
 encrypt :: ByteString -> ByteString -> ByteString
 
--- | Takes in two <tt>ByteStrings</tt>, <tt>k</tt>, <tt>c</tt> representing
---   the <tt>key</tt> and <tt>ciphertext</tt> to be dcecrypted. Returns the
---   decrypted <a>ByteString</a>.
+-- | For <a>ByteString</a>s <tt>k</tt> and <tt>c</tt>, returns the
+--   decrypted <a>ByteString</a> message.
 decrypt :: ByteString -> ByteString -> ByteString
 
+
+-- | Exports functions for generating prime numbers based on Miller-Rabin
+--   primality testt.
 module NumberTheory
+
+-- | Generates a random prime with <i>b</i> bits using the Miller-Rabin
+--   primality test.
 genPrime :: (RandomGen a, Integral b) => a -> b -> Integer
+
+-- | Returns <tt>a^d mod n</tt>.
 powModN :: Integral a => a -> a -> a -> a
+
+-- | Finds the multiplicative inverse of <tt>a mod phi(p*q)</tt>.
 findInverse :: (Integral a) => a -> a -> a -> a
 
+
+-- | Internal functions used for RSA
 module RSA.Internal
+
+-- | An internal representation of an RSA key.
 data Key
 Key :: !Integer -> !Integer -> Key
 [keyModulus] :: Key -> !Integer
 [keyExponent] :: Key -> !Integer
+
+-- | Transforms a <a>Key</a> into a <a>ByteString</a>.
 keyToByteString :: Key -> ByteString
+
+-- | Transforms a <a>ByteString</a> into a <a>Key</a>.
 byteStringToKey :: ByteString -> Key
+
+-- | For a <a>RandomGen</a> <tt>g</tt> and <tt>b</tt> bit-length, returns
+--   <tt>(p, q)</tt>, for primes <tt>p</tt> and <tt>q</tt>.
 genModulus :: (RandomGen a, Integral b) => a -> b -> (Integer, Integer)
 instance GHC.Show.Show RSA.Internal.Key
 instance GHC.Classes.Eq RSA.Internal.Key
 
+
+-- | This is the API for the main RSA functions. Supports 1024, 2048, and
+--   4096 bit keys. This is for file encryption, so it encrypts the file
+--   with AES-256 then encrypts the AES key using RSA. For RSA public key
+--   <tt>pk</tt>, generated AES key <tt>k</tt>, and message <tt>m</tt>, the
+--   ciphertext is:
+--   
+--   <pre>
+--   (Enc_RSA_pk(k)|Enc_AES_k(m))
+--   </pre>
 module RSA.API
 
--- | Takes an <a>Integral</a> <tt>size</tt> and two strings
---   <tt>pubFileOut</tt>, <tt>prvFileOut</tt>. Generates a public/private
---   key pair based on <a>keygen</a> and writes the key pair to the files.
+-- | For <a>Integral</a> <tt>n</tt>, <a>String</a> <tt>pkFileOut</tt>,
+--   <a>String</a> <tt>skFileOut</tt>, creates an <tt>n</tt> bit <tt>(pk,
+--   sk)</tt> key pair and writes the keys to <tt>pkFileOut</tt> and
+--   <tt>skFileOut</tt>, respectively.
 keygenIO :: Integral a => a -> String -> String -> IO ()
 
--- | Takes 3 <a>String</a>s, <tt>keyFile</tt>, <tt>fileIn</tt>,
---   <tt>fileOut</tt>. <tt>fileIn</tt> is encrypted based on <a>encrypt</a>
---   with <tt>keyFile</tt>, and the ciphertext is written to
+-- | For <a>String</a>s <tt>keyFile</tt>, <tt>fileIn</tt>,
+--   <tt>fileOut</tt>, uses the key in <tt>keyFile</tt> to encrypt the
+--   contents of <tt>fileIn</tt>, writing the ciphertext to
 --   <tt>fileOut</tt>.
 encryptIO :: String -> String -> String -> IO ()
 
--- | Takes 3 <a>String</a>s, <tt>keyFile</tt>, <tt>fileIn</tt>,
---   <tt>fileOut</tt>. <tt>fileIn</tt> is decrypted based on <a>decrypt</a>
---   with <tt>keyFile</tt>, and the decrypted text is written to
---   <tt>fileOut</tt>.
+-- | For <a>String</a>s <tt>keyFile</tt>, <tt>fileIn</tt>,
+--   <tt>fileOut</tt>, uses the key in <tt>keyFile</tt> to decrypt the
+--   contents of <tt>fileIn</tt>, writing the message to <tt>fileOut</tt>.
 decryptIO :: String -> String -> String -> IO ()
 
--- | Takes a <a>RandomGen</a> <tt>g</tt>, <a>Integral</a> <tt>size</tt>. If
---   is <tt>size</tt> one of 1024, 2048, or 4096 then returns <a>Just</a>
---   (<a>ByteString</a>, <a>ByteString</a>), where the <a>ByteString</a>s
---   are the public and private keys, respectively. If <tt>size</tt> is
---   anything then <a>Nothing</a> is returned.
-keygen :: (RandomGen a, Integral b) => a -> b -> Maybe (ByteString, ByteString)
+-- | For <a>RandomGen</a> g and <a>Integral</a> <tt>n</tt> in <tt>(1024,
+--   2048, 4096)</tt>, returns <a>Just</a> <tt>(pk, sk)</tt>. If <tt>n</tt>
+--   is not a valid key-size then returns <a>Nothing</a>.
+keygen :: (RandomGen g, Integral a) => g -> a -> Maybe (ByteString, ByteString)
 
--- | Takes a <a>RandomGen</a> g and two <a>ByteString</a>s <tt>k</tt>,
---   <tt>m</tt>, representing the <tt>key</tt> and <tt>message</tt> to be
---   encrypted. <tt>m</tt> is encrypted with AES-256 in ECB mode (I know)
---   to produce ciphertext <tt>c</tt>. The generated AES key <tt>l</tt> is
---   then encrypted with the public key <tt>k</tt>, so the final output is
---   <tt>RSA_k(l)|AES_l(m)</tt>.
-encrypt :: (RandomGen a) => a -> ByteString -> ByteString -> ByteString
+-- | For <a>RandomGen</a> g and <a>ByteString</a>s <tt>k</tt> and
+--   <tt>m</tt>, returns the encrypted <a>ByteString</a> ciphertext. If AES
+--   keygen fails then returns <a>empty</a>.
+encrypt :: (RandomGen g) => g -> ByteString -> ByteString -> ByteString
 
--- | Takes two <a>ByteString</a>s <tt>k</tt>, <tt>m</tt>, representing the
---   <tt>key</tt> and <tt>ciphertext</tt> to be decrypted.
+-- | For <a>ByteString</a>s <tt>k</tt> and <tt>c</tt>, returns the
+--   decrypted <a>ByteString</a> message.
 decrypt :: ByteString -> ByteString -> ByteString
