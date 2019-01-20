@@ -1,6 +1,14 @@
+{-|
+Module      : Common
+Description : Internal functions used for AES
+License     : MIT
+Maintainer  : tbidne@gmail.com
+
+Internal functions used for AES.
+-}
 module AES.Internal
-( setupForTransform
-, ecb
+( ecb
+, setupForTransform
 , encryptInit
 , decryptInit
 , rotate
@@ -8,15 +16,13 @@ module AES.Internal
 )
 where
 
-import Prelude hiding (round)
-
+import           Data.Bits ()
 import qualified Data.Bits as B (shiftL, shiftR, xor, (.&.))
-import Data.Bits()
-import qualified Data.List as L (concat, map, transpose)
-import Data.Word (Word8)
-
-import Data.ByteString.Lazy (ByteString)
+import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS (append, pack, unpack)
+import qualified Data.List as L (concat, map, transpose)
+import           Data.Word (Word8)
+import           Prelude hiding (round)
 
 import qualified Common
 
@@ -24,6 +30,9 @@ import qualified Common
 -- Block Cipher Mode Functions --
 ---------------------------------
 
+-- | Takes an 'Int' @maxRound@, encryption function @f@, [['Word8']] @roundKeys@,
+-- ['Word8'] message, and starting matrix []. Encrypts each block with @f@ and
+-- concatenates all blocks together.
 ecb :: Int
     -> (Int -> [[Word8]] -> [[Word8]] -> [[Word8]])
     -> [[Word8]]
@@ -40,17 +49,22 @@ ecb maxRound f roundKeys bytes encrypted = ecb maxRound f roundKeys bytes' encry
 -- Init Functions --
 --------------------
 
+-- | For 'ByteString' @key@, returns @(maxRound, roundKeys)@.
 setupForTransform :: ByteString -> (Int, [[Word8]])
 setupForTransform k = (maxRound, roundKeys)
   where key = keyInit k
         roundKeys = keySchedule key
         maxRound = length key + 6
 
--- Turns ByteString representing key into matrix e.g. 128 bit keys have form
+-- | Turns ByteString representing key into matrix e.g. 128 bit keys have form:
+--
+-- @
 -- | b1  b2  b3  b4  |
 -- | b5  b6  b7  b8  |
 -- | b8  b9  b10 b11 |
 -- | b12 b13 b14 b15 |
+-- @
+--
 -- 192 bit keys have 6 rows, 256 have 8 rows
 keyInit :: ByteString -> [[Word8]]
 keyInit bytes = key
@@ -62,7 +76,7 @@ keyInit bytes = key
 -- | b2 b6 b10 b14 |
 -- | b3 b7 b11 b15 |
 -- | b4 b8 b12 b16 |
--- Notice this matrix is the _transpose_ of how the key was interpreted
+-- Notice this matrix is the /transpose/ of how the key was interpreted
 stateInit :: [Word8] -> [[Word8]]
 stateInit byteList = state
   where matrix = Common.flatListToMatrix 4 byteList []
@@ -72,12 +86,17 @@ stateInit byteList = state
 -- Rijndael Encrypt Functions --
 --------------------------------
 
--- Round 0: starts the encryption, adds the first round key
+-- | Round 0
+-- Takes an 'Int' @maxRound@, [['Word8']] @roundKeys@,
+-- ['Word8'] state, and returns the modified state.
 encryptInit :: Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
 encryptInit maxRound roundKeys state = encryptRound 1 maxRound roundKeys state'
   where state' = addRoundKey 0 roundKeys state
 
--- Rounds 1 to Nr-1
+-- | Rounds 1 to Nr-1
+-- Takes 'Int's @round@ for the currentRound, @maxRound@, [['Word8']] @roundKeys@,
+-- ['Word8'] state. Modifies the state according to FIPS 197, returns the
+-- state after round Nr-1.
 encryptRound :: Int -> Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
 encryptRound round maxRound roundKeys state
   | round == maxRound = encryptFinalize round roundKeys state
@@ -85,7 +104,9 @@ encryptRound round maxRound roundKeys state
   where transform = mixColumns . shiftRows . subBytes
         state' = addRoundKey round roundKeys $ transform state
 
--- Round Nr: final transformation
+-- | Round Nr: final round
+-- Takes 'Int' @round@, [['Word8']] @roundKeys@, ['Word8'] state.
+-- Performs the final transformation and returns the state.
 encryptFinalize :: Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
 encryptFinalize round roundKeys state = state'
   where transform = shiftRows . subBytes
@@ -119,7 +140,9 @@ mixColumns state = L.transpose mixed
 -- Rijndael Decrypt Functions --
 --------------------------------
 
--- Round Nr: starts the decryption, adds the last round key
+-- | Round Nr
+-- Takes an 'Int' @maxRound@, [['Word8']] @roundKeys@,
+-- ['Word8'] state, and returns the modified state.
 decryptInit :: Int -> [[Word8]] -> [[Word8]] -> [[Word8]]
 decryptInit maxRound roundKeys state = decryptRound (maxRound-1) roundKeys state'
   where state' = addRoundKey maxRound roundKeys state
@@ -203,7 +226,11 @@ subWord = L.map subByte
 invSubWord :: [Word8] -> [Word8]
 invSubWord = L.map invSubByte
 
--- Rotates a list by 1, e.g., [1,2,3] -> [2,3,1]
+-- | Rotates a list by 1.
+--
+-- @
+-- rotate [1,2,3] -> [2,3,1]
+-- @
 rotate :: [a] -> [a]
 rotate [] = []
 rotate (x:xs) = xs ++ [x]
@@ -288,7 +315,7 @@ invSbox = [row0,row1,row2,row3,row4,row5,row6,row7,row8,row9,row10,row11,row12,r
 -- Helper Functions --
 ----------------------
 
--- We only need to implement multiplication by 2 and 3 in GF(2^8) for encryption,
+-- | We only need to implement multiplication by 2 and 3 in GF(2^8) for encryption,
 -- 9, 11, 13, and 14 for decryption.
 -- Multiplication by 2 is equivalent to bit shifting by one and adding (xor)
 -- 0x1b (27) if the high bit was set.

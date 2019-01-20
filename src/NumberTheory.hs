@@ -1,3 +1,11 @@
+{-|
+Module      : NumberTheory
+Description : Small module exporting some number theoretic functions.
+License     : MIT
+Maintainer  : tbidne@gmail.com
+
+Exports functions for generating prime numbers based on Miller-Rabin primality testt.
+-}
 module NumberTheory
 ( genPrime
 , powModN
@@ -6,9 +14,7 @@ module NumberTheory
 
 import qualified System.Random as Random
 
--- generates a random prime with size bits using miller-rabin primality test
--- g = RandomGen
--- size = bit size of desired prime
+-- | Generates a random prime with /b/ bits using the Miller-Rabin primality test.
 genPrime :: (Random.RandomGen a, Integral b) => a -> b -> Integer
 genPrime g size
   | millerRabin g n (10::Integer) = n
@@ -70,12 +76,12 @@ maxPowTwoDivisor n i
   | otherwise    = maxPowTwoDivisor n (i+1)
   where d = n `div` (2^i)
 
--- returns a^d mod n
+-- | Returns @a^d mod n@.
 powModN :: Integral a => a -> a -> a -> a
 powModN a 1 _ = a
 powModN a d n = (a^(d `mod` 2) * powModN (a*a `mod` n) (d `div` 2) n) `mod` n
 
--- finds the multiplicative inverse of a mod phi(p*q)
+-- | Finds the multiplicative inverse of @a mod phi(p*q)@.
 findInverse :: (Integral a) => a -> a -> a -> a
 findInverse a p q
   | x > 0     = x
