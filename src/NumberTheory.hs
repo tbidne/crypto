@@ -4,7 +4,7 @@ Description : Small module exporting some number theoretic functions.
 License     : MIT
 Maintainer  : tbidne@gmail.com
 
-Exports functions for generating prime numbers based on Miller-Rabin primality testt.
+Exports functions for generating prime numbers based on Miller-Rabin primality test.
 -}
 module NumberTheory
 ( genPrime
@@ -76,12 +76,13 @@ maxPowTwoDivisor n i
   | otherwise    = maxPowTwoDivisor n (i+1)
   where d = n `div` (2^i)
 
--- | Returns @a^d mod n@.
+-- | For /a, d, n/, returns \( a^d \pmod n \).
 powModN :: Integral a => a -> a -> a -> a
 powModN a 1 _ = a
 powModN a d n = (a^(d `mod` 2) * powModN (a*a `mod` n) (d `div` 2) n) `mod` n
 
--- | Finds the multiplicative inverse of @a mod phi(p*q)@.
+-- | For /a, p, q/, finds the multiplicative inverse of /a/ in \(\mathbb{Z}/pq\mathbb{Z}\). That is, finds /e/ such that
+-- \[ ae \equiv 1 \pmod{\varphi(pq)} \].
 findInverse :: (Integral a) => a -> a -> a -> a
 findInverse a p q
   | x > 0     = x
