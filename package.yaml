@@ -35,6 +35,8 @@ library:
   dependencies:
     - bytestring
     - random
+    - split
+    - vector
 
 executables:
   crypto-exe:
@@ -49,6 +51,8 @@ executables:
     dependencies:
       - bytestring
       - random
+      - split
+      - vector
 
 tests:
   spec:

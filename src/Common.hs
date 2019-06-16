@@ -77,8 +77,8 @@ word8ListToInt xs = foldl' (\x y -> (y + shiftL x 8)) 0 ys
 -- @
 -- xorByte [b1, b2 ... bn] b -> [b1 &#8853; b, b2 &#8853; b ... bn &#8853; b]
 -- @
-xorByte :: Bits a => [a] -> a -> [a]
-xorByte xs e = map (`xor` e) xs
+xorByte :: (Functor f, Bits a) => f a -> a -> f a
+xorByte xs e = fmap (`xor` e) xs
 
 -- | For two 'Bit' lists, returns a new list with each corresponding `Bit` xor'd.
 --

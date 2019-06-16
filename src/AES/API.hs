@@ -17,14 +17,15 @@ module AES.API
 , keygen
 , encrypt
 , decrypt
+, I.KeyError
 )
 where
 
 import           Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS (cons, drop, empty, pack, readFile, reverse, unpack, writeFile)
+import qualified Data.ByteString.Lazy as BS (cons, drop, pack, readFile, reverse, unpack, writeFile)
 import           System.Random (RandomGen, newStdGen, randomR)
 
-import qualified AES.Internal as Internal
+import qualified AES.Internal as I
 import qualified Common
 
 ------------------
@@ -48,8 +49,9 @@ encryptIO :: String -> String -> String -> IO ()
 encryptIO keyFile fileIn fileOut = do
   k <- BS.readFile keyFile
   m <- BS.readFile fileIn
-  let encrypted = encrypt k m
-  BS.writeFile fileOut encrypted
+  case encrypt k m of
+    Left err -> putStrLn $ show err
+    Right encrypted -> BS.writeFile fileOut encrypted
 
 -- | For 'String's @keyFile@, @fileIn@, @fileOut@, uses the key in
 -- @keyFile@ to decrypt the contents of @fileIn@, writing the message
@@ -58,8 +60,9 @@ decryptIO :: String -> String -> String -> IO ()
 decryptIO keyFile fileIn fileOut = do
   k <- BS.readFile keyFile
   c <- BS.readFile fileIn
-  let decrypted = decrypt k c
-  BS.writeFile fileOut decrypted
+  case decrypt k c of
+    Left err -> putStrLn $ show err
+    Right decrypted -> BS.writeFile fileOut decrypted
 
 -------------------
 -- API Functions --
@@ -78,17 +81,21 @@ keygen g size = case size of
 
 -- | For 'ByteString's @k@ and @m@, returns the encrypted 'ByteString'
 -- ciphertext. If AES keygen fails then returns 'ByteString.empty'.
-encrypt :: ByteString -> ByteString -> ByteString
-encrypt k m = BS.cons numPadding encrypted
-  where (maxRound, roundKeys) = Internal.setupForTransform k
-        (numPadding, padded) = Common.padToN 16 $ BS.unpack m
-        encrypted = Internal.ecb maxRound Internal.encryptInit roundKeys padded BS.empty
+encrypt :: ByteString -> ByteString -> Either I.AESError ByteString
+encrypt k m = case I.setupForTransform k of
+  Left err -> Left $ I.AESKey err
+  Right roundKeys ->
+    let (numPadding, padded) = Common.padToN 16 $ BS.unpack m
+        encrypted = I.ecb I.encryptInit roundKeys padded []
+    in Right $ BS.cons numPadding encrypted
 
 -- | For 'ByteString's @k@ and @c@, returns the decrypted 'ByteString' message.
-decrypt :: ByteString -> ByteString -> ByteString
-decrypt k c = unpadded
-  where (maxRound, roundKeys) = Internal.setupForTransform k
-        byteList = BS.unpack c
+decrypt :: ByteString -> ByteString -> Either I.AESError ByteString
+decrypt k c = case I.setupForTransform k of
+  Left err -> Left $ I.AESKey err
+  Right roundKeys -> 
+    let byteList = BS.unpack c
         numPadding = fromIntegral $ head byteList
-        decrypted = Internal.ecb maxRound Internal.decryptInit roundKeys (drop 1 byteList) BS.empty
+        decrypted = I.ecb I.decryptInit roundKeys (drop 1 byteList) []
         unpadded = BS.reverse $ BS.drop numPadding $ BS.reverse decrypted
+    in Right $ unpadded

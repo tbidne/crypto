@@ -25,6 +25,7 @@ module RSA.API
 import           Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS (append, empty, pack, readFile, unpack, writeFile)
 import           Data.Word ()
+import           Data.Either (fromRight)
 import           System.Random (RandomGen, newStdGen)
 
 import qualified AES.API as AES
@@ -86,11 +87,11 @@ encrypt g k m =
   case AES.keygen g 256 of
     Nothing -> BS.empty
     Just aesKeyBytes ->
-      let aesKeyInt = C.word8ListToInt $ BS.unpack aesKeyBytes in
-      let ciphertext = AES.encrypt aesKeyBytes m in
-      let Key {keyModulus = modulus, keyExponent = e} = Internal.byteStringToKey k in
-      let encryptedAesKey = C.intToByteString $ NT.powModN aesKeyInt e modulus in
-      encryptedAesKey `BS.append` ciphertext
+      let aesKeyInt = C.word8ListToInt $ BS.unpack aesKeyBytes
+          ciphertext = AES.encrypt aesKeyBytes m
+          Key {keyModulus = modulus, keyExponent = e} = Internal.byteStringToKey k
+          encryptedAesKey = C.intToByteString $ NT.powModN aesKeyInt e modulus
+      in encryptedAesKey `BS.append` (fromRight BS.empty ciphertext)
 
 -- | For 'ByteString's @k@ and @c@, returns the decrypted 'ByteString' message.
 decrypt :: ByteString -> ByteString -> ByteString
@@ -99,5 +100,5 @@ decrypt k c = decryptedText
         (encryptedAesKey, ciphertext) = C.byteStringToInt c
         decryptedAesKey = NT.powModN encryptedAesKey d modulus
         aesKeyBytes = BS.pack $ C.intToWord8List decryptedAesKey []
-        decryptedText = AES.decrypt aesKeyBytes ciphertext
+        decryptedText = (fromRight BS.empty) $ AES.decrypt aesKeyBytes ciphertext
 

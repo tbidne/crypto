@@ -4,7 +4,6 @@ module CommonSpec
 where
 
 import qualified Data.ByteString.Lazy as BS (empty, pack)
-import Data.Word (Word8)
 import Test.Hspec
 
 import qualified Common as C
@@ -29,7 +28,7 @@ spec = do
       C.word8ListToInt [11,34,121,219,13,148,44,170,230,252] `shouldBe`
         52582001236900766738172
 
-  describe "xor functions" $ do
+  {-describe "xor functions" $ do
     it "should xor list with byte" $ do
       C.xorByte [71,16,100,88,244,191,244,25] (6::Word8) `shouldBe`
         [65,22,98,94,242,185,242,31]
@@ -40,7 +39,7 @@ spec = do
       C.xorMatrix [[22,118,122,58],[160,30,17,13],[86,147,22,179],[35,78,200,31]]
        ([[63,86,38,102],[0,100,194,13],[153,99,251,199],[211,225,25,61]]::[[Word8]])
        `shouldBe`
-       [[41,32,92,92],[160,122,211,0],[207,240,237,116],[240,175,209,34]]
+       [[41,32,92,92],[160,122,211,0],[207,240,237,116],[240,175,209,34]]-}
 
   describe "flatListToMatrix" $ do
     it "should transform the list to a matrix" $ do

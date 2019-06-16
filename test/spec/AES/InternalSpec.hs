@@ -12,10 +12,6 @@ import AES.Internal
 
 spec :: Spec
 spec = do
-  describe "rotate" $ do
-    it "should rotate the list by one" $ do
-      rotate ([1,2,3,4,5]::[Int]) `shouldBe` ([2,3,4,5,1]::[Int])
-
   describe "fieldMult" $ do
     it "should multiply by 2 in GF(2^8)" $ do
       fieldMult 2 57 `shouldBe` 114
